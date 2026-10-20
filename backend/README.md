@@ -1,51 +1,17 @@
-### Как запустить проект:
+# Бэкенд Kittygram
 
-Клонировать репозиторий и перейти в него в командной строке:
+Django REST API для котов, достижений и пользователей. Данные хранятся
+в PostgreSQL, авторизация работает через токены Djoser.
 
-```
-git clone https://github.com/yandex-praktikum/kittygram_backend.git
-```
+Запуск проекта и переменные окружения описаны в [основном README](../README.md).
+Из корня репозитория:
 
-```
-cd kittygram_backend
-```
-
-Cоздать и активировать виртуальное окружение:
-
-```
-python3 -m venv env
+```bash
+docker compose up --build -d --wait
+docker compose exec backend python manage.py createsuperuser
+docker compose exec backend python manage.py test cats --verbosity 2
 ```
 
-* Если у вас Linux/macOS
-
-    ```
-    source env/bin/activate
-    ```
-
-* Если у вас windows
-
-    ```
-    source env/scripts/activate
-    ```
-
-```
-python3 -m pip install --upgrade pip
-```
-
-Установить зависимости из файла requirements.txt:
-
-```
-pip install -r requirements.txt
-```
-
-Выполнить миграции:
-
-```
-python3 manage.py migrate
-```
-
-Запустить проект:
-
-```
-python3 manage.py runserver
-```
+API: <http://localhost:9000/api/>. Основные маршруты: users/,
+token/login/, token/logout/, cats/, cats/{id}/, achievements/.
+Бэкенд сам применяет миграции и собирает статику перед запуском Gunicorn.

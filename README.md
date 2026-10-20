@@ -1,26 +1,111 @@
-#  Как работать с репозиторием финального задания
+# Kittygram: Docker и CI/CD
 
-## Что нужно сделать
+Приложение для публикации фотографий котов и их достижений.
+Стек: Python 3.10, Django 3.2, DRF, React 17, Node.js 18, PostgreSQL 13,
+Gunicorn, Nginx, Docker Compose, GitHub Actions и Ruff.
 
-Настроить запуск проекта Kittygram в контейнерах и CI/CD с помощью GitHub Actions
+## Локальный запуск
 
-## Как проверить работу с помощью автотестов
+Нужны Git, Docker с Linux-контейнерами и Docker Compose v2 или новее.
+В Windows предварительно запустите Docker Desktop.
 
-В корне репозитория создайте файл tests.yml со следующим содержимым:
-```yaml
-repo_owner: ваш_логин_на_гитхабе
-kittygram_domain: полная ссылка (https://доменное_имя) на ваш проект Kittygram
-taski_domain: полная ссылка (https://доменное_имя) на ваш проект Taski
-dockerhub_username: ваш_логин_на_докерхабе
+```bash
+git clone https://github.com/afflictd/kittygram_final.git
+cd kittygram_final
 ```
 
-Скопируйте содержимое файла `.github/workflows/main.yml` в файл `kittygram_workflow.yml` в корневой директории проекта.
+Скопируйте `.env.example` в `.env`: `Copy-Item .env.example .env`
+в PowerShell или `cp .env.example .env` в Bash.
+Замените `POSTGRES_PASSWORD` и `SECRET_KEY` своими случайными значениями.
 
-Для локального запуска тестов создайте виртуальное окружение, установите в него зависимости из backend/requirements.txt и запустите в корневой директории проекта `pytest`.
+| Переменная | Назначение |
+| --- | --- |
+| POSTGRES_DB | Имя базы данных |
+| POSTGRES_USER | Пользователь PostgreSQL |
+| POSTGRES_PASSWORD | Пароль PostgreSQL |
+| DB_HOST, DB_PORT | Адрес БД в сети Docker: db:5432 |
+| SECRET_KEY | Секретный ключ Django |
+| DEBUG | False для обычного запуска |
+| ALLOWED_HOSTS | Разрешённые хосты через запятую |
 
-## Чек-лист для проверки перед отправкой задания
+```bash
+docker compose up --build -d --wait
+docker compose exec backend python manage.py createsuperuser
+```
 
-- Проект Taski доступен по доменному имени, указанному в `tests.yml`.
-- Проект Kittygram доступен по доменному имени, указанному в `tests.yml`.
-- Пуш в ветку main запускает тестирование и деплой Kittygram, а после успешного деплоя вам приходит сообщение в телеграм.
-- В корне проекта есть файл `kittygram_workflow.yml`.
+Приложение: <http://localhost:9000/>. Админка: <http://localhost:9000/admin/>.
+API доступен по `/api/`: `users/`, `token/login/`, `token/logout/`,
+`cats/`, `cats/{id}/`, `achievements/`.
+
+Бэкенд ждёт готовности БД, применяет миграции, собирает статику и запускает
+Gunicorn. Контейнер frontend копирует сборку в общий том и завершается
+с кодом 0 — это штатное поведение. После подготовки фронтенда и бэкенда
+запускается Nginx: он раздаёт React, статику и фотографии, а запросы
+`/api/` и `/admin/` передаёт Gunicorn.
+
+Данные сохраняются в томах `pg_data` (PostgreSQL), `static` (React и статика
+Django), `media` (фотографии). Команда `docker compose down` останавливает
+проект с сохранением данных. Для существующего тома БД переменные
+POSTGRES_* должны совпадать с данными его первоначального создания.
+Файл `.env` и секретные токены не добавляются в Git.
+
+## Проверки
+
+```bash
+docker compose config --quiet
+docker compose exec backend python manage.py check
+docker compose exec backend python manage.py makemigrations --check --dry-run
+docker compose exec backend python manage.py test cats --verbosity 2
+docker compose run --rm --no-deps frontend npm test -- --watchAll=false --runInBand
+```
+
+Для Ruff в окружении Python 3.10: `python -m pip install ruff==0.11.13`,
+затем `ruff check backend/`.
+
+Каталог `tests/` из исходного репозитория проверяет внешние сайты Taski,
+Kittygram и Docker Hub. Для его запуска нужны реальные домены и файл
+`tests.yml`. Это отдельная проверка после развёртывания на сервере.
+Workflow запускает готовые тесты приложения из `backend/cats/tests.py`
+и `frontend/src/components/app/app.test.js`.
+
+## GitHub Actions
+
+Workflow: `.github/workflows/main.yml`. Его копия для проверки задания:
+`kittygram_workflow.yml` в корне. При изменении обновляйте оба файла.
+
+Pull request в main запускает Ruff, проверку Django и миграций,
+тесты бэкенда с PostgreSQL и тесты фронтенда. Push в main дополнительно
+собирает и публикует три образа в Docker Hub: `kittygram_backend`,
+`kittygram_frontend`, `kittygram_gateway`. Теги — latest и SHA коммита.
+После публикации всех трёх образов приходит уведомление в Telegram.
+Workflow можно запустить вручную на вкладке Actions. Новый запуск
+для той же ветки отменяет предыдущий.
+
+В **Settings → Secrets and variables → Actions** создайте секреты:
+
+| Секрет | Значение |
+| --- | --- |
+| DOCKER_USERNAME | Логин Docker Hub |
+| DOCKER_PASSWORD | Токен Docker Hub с правом записи образов |
+| TELEGRAM_TOKEN | Токен Telegram-бота |
+| TELEGRAM_TO | ID чата, в котором пользователь запустил бота |
+
+Нужны аккаунт Docker Hub и три публичных репозитория с указанными именами.
+Бота создают через @BotFather, затем открывают чат с ним и нажимают Start.
+Токены хранятся только в Actions secrets. Если настройки отсутствуют,
+соответствующий шаг завершается ошибкой с именем недостающего секрета.
+
+## Запуск опубликованных образов
+
+Добавьте `DOCKERHUB_USERNAME` со своим логином в `.env`.
+Конфигурация production использует готовые образы без локальной сборки:
+
+```bash
+docker compose -f docker-compose.production.yml pull
+docker compose -f docker-compose.production.yml up -d --wait
+```
+
+Порт 9000 привязан к 127.0.0.1. На удалённом сервере внешний Nginx должен
+направлять запросы домена Kittygram на http://127.0.0.1:9000, а домена Taski
+на порт Taski. Домен Kittygram нужно добавить в ALLOWED_HOSTS.
+Автоматическая установка проекта на удалённый сервер в workflow не включена.
