@@ -7,7 +7,7 @@
 Цель учебного проекта — настроить совместную работу приложения в контейнерах
 и автоматизировать проверки, сборку и публикацию образов через GitHub Actions.
 
-Стек: Python 3.10, Django 3.2, DRF, React 17, Node.js 18, PostgreSQL 13,
+Стек: Python 3.10–3.12, Django 4.2, DRF, React 17, Node.js 18, PostgreSQL 13,
 Gunicorn, Nginx, Docker Compose, GitHub Actions и Ruff.
 
 ## Локальный запуск
@@ -65,8 +65,19 @@ docker compose exec backend python manage.py test cats --verbosity 2
 docker compose run --rm --no-deps frontend npm test -- --watchAll=false --runInBand
 ```
 
-Для Ruff в окружении Python 3.10: `python -m pip install ruff==0.11.13`,
-затем `ruff check backend/`.
+Для проверок и автоматического форматирования перед коммитами:
+
+```bash
+python -m pip install -r requirements-dev.txt
+pre-commit install
+pre-commit run --all-files
+ruff check backend/
+ruff format --check backend/
+pycodestyle backend/
+```
+
+Hooks автоматически форматируют Python-код, исправляют доступные Ruff
+ошибки и проверяют стиль при каждом коммите.
 
 Каталог `tests/` из исходного репозитория проверяет внешние сайты Taski,
 Kittygram и Docker Hub. Для его запуска нужны реальные домены и файл
@@ -79,11 +90,14 @@ Workflow запускает готовые тесты приложения из 
 Workflow: `.github/workflows/main.yml`. Его копия для проверки задания:
 `kittygram_workflow.yml` в корне. При изменении обновляйте оба файла.
 
-Push в любую ветку и pull request в main запускают Ruff, проверку Django
-и миграций, тесты бэкенда с PostgreSQL и тесты фронтенда. Push в main дополнительно
+Push в любую ветку и pull request в main запускают Ruff, проверку
+форматирования и pycodestyle, проверку Django и миграций, тесты бэкенда
+с PostgreSQL на Python 3.10, 3.11, 3.12 и тесты фронтенда.
+Контейнер бэкенда использует Python 3.10. Push в main дополнительно
 собирает и публикует три образа в Docker Hub: `kittygram_backend`,
 `kittygram_frontend`, `kittygram_gateway`. Теги — latest и SHA коммита.
-После публикации всех трёх образов приходит уведомление в Telegram.
+После публикации всех трёх образов приходит уведомление в Telegram
+с автором, сообщением и ссылкой на коммит.
 Workflow можно запустить вручную на вкладке Actions. Новый запуск
 для той же ветки отменяет предыдущий.
 

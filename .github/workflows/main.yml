@@ -16,6 +16,10 @@ concurrency:
 jobs:
   backend_tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
     services:
       postgres:
         image: postgres:13
@@ -41,15 +45,21 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: |
+            backend/requirements.txt
+            requirements-dev.txt
       - name: Install dependencies
         run: |
           python -m pip install -r backend/requirements.txt
-          python -m pip install ruff==0.11.13
+          python -m pip install -r requirements-dev.txt
       - name: Check backend with Ruff
         run: ruff check backend/
+      - name: Check formatting and Python style
+        run: |
+          ruff format --check backend/
+          pycodestyle backend/
       - name: Check Django and migrations
         working-directory: backend
         run: |
@@ -125,11 +135,14 @@ jobs:
           TELEGRAM_TO: ${{ secrets.TELEGRAM_TO }}
           REPOSITORY: ${{ github.repository }}
           COMMIT: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || 'Manual workflow run' }}
         run: |
           test -n "$TELEGRAM_TOKEN" || { echo 'Set TELEGRAM_TOKEN in Actions secrets'; exit 1; }
           test -n "$TELEGRAM_TO" || { echo 'Set TELEGRAM_TO in Actions secrets'; exit 1; }
+          COMMIT_MESSAGE="${COMMIT_MESSAGE:0:1000}"
           curl --fail --silent --show-error --output /dev/null \
             --request POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_TO}" \
-            --data-urlencode "text=Kittygram: тесты пройдены, три образа опубликованы. ${REPOSITORY}, коммит ${COMMIT}."
+            --data-urlencode "text=Kittygram: тесты пройдены, три образа опубликованы. Автор: ${ACTOR}. ${COMMIT_MESSAGE}. https://github.com/${REPOSITORY}/commit/${COMMIT}"
           echo 'Telegram notification delivered'
