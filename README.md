@@ -97,13 +97,18 @@ Workflow можно запустить вручную на вкладке Action
 
 ## Запуск опубликованных образов
 
-Добавьте `DOCKERHUB_USERNAME` со своим логином в `.env`.
+Проверьте `DOCKERHUB_USERNAME` в `.env`: для этого репозитория используется
+`afflictd`. При публикации в другой аккаунт укажите его логин.
 Конфигурация production использует готовые образы без локальной сборки:
 
 ```bash
 docker compose -f docker-compose.production.yml pull
 docker compose -f docker-compose.production.yml up -d --wait
 ```
+
+Образы проекта: [бэкенд](https://hub.docker.com/r/afflictd/kittygram_backend),
+[фронтенд](https://hub.docker.com/r/afflictd/kittygram_frontend),
+[Nginx](https://hub.docker.com/r/afflictd/kittygram_gateway).
 
 Порт 9000 привязан к 127.0.0.1. На удалённом сервере внешний Nginx должен
 направлять запросы домена Kittygram на http://127.0.0.1:9000, а домена Taski
