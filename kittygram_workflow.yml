@@ -129,7 +129,8 @@ jobs:
         run: |
           test -n "$TELEGRAM_TOKEN" || { echo 'Set TELEGRAM_TOKEN in Actions secrets'; exit 1; }
           test -n "$TELEGRAM_TO" || { echo 'Set TELEGRAM_TO in Actions secrets'; exit 1; }
-          curl --fail --silent --show-error \
+          curl --fail --silent --show-error --output /dev/null \
             --request POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_TO}" \
             --data-urlencode "text=Kittygram: тесты пройдены, три образа опубликованы. ${REPOSITORY}, коммит ${COMMIT}."
+          echo 'Telegram notification delivered'
